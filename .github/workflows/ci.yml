@@ -10,6 +10,9 @@ jobs:
   quality:
     name: Code Quality
     runs-on: ubuntu-latest
+    # Only run full quality check on pull_request
+    # On push just verify it builds
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
 
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +35,7 @@ jobs:
         run: ruff format --check src/ tests/
 
       - name: Type check with mypy
-        run: mypy src/ --ignore-missing-imports
+        run: mypy src/ --ignore-missing-imports --explicit-package-bases
 
       - name: Install Playwright
         run: playwright install chromium --with-deps
@@ -42,16 +45,18 @@ jobs:
         env:
           LLM_PROVIDER: openai
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          CRAWLER_HEADLESS: true
+          CRAWLER_HEADLESS: "true"
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
           file: coverage.xml
+          fail_ci_if_error: false
 
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
 
     steps:
       - uses: actions/checkout@v4
