@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     LLM_PROVIDER: Literal["openai", "anthropic", "bedrock"] = "openai"
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o"
+    ANTHROPIC_API_KEY: str = ""
 
     # ── AWS Bedrock ───────────────────────────────────────────────────────────
     AWS_ACCESS_KEY_ID: str = ""
