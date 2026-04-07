@@ -65,4 +65,4 @@ jobs:
         run: pip install bandit
 
       - name: Security scan
-        run: bandit -r src/ -ll
+        run: bandit -r src/ -lll

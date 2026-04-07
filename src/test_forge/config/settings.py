@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     OUTPUT_DIR: str = "./outputs"
 
     # ── API ───────────────────────────────────────────────────────────────────
-    API_HOST: str = "0.0.0.0"
+    API_HOST: str = "0.0.0.0"  # nosec B104 — intentional server binding address
     API_PORT: int = 8000
     API_KEY: str = ""
 
