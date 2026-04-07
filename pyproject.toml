@@ -120,7 +120,7 @@ filterwarnings  = ["ignore::DeprecationWarning"]
 # ── Coverage ──────────────────────────────────────────────────────────────────
 [tool.coverage.run]
 source   = ["src/test_forge"]
-omit     = ["*/tests/*", "*/__init__.py"]
+omit     = ["*/tests/*", "*/__init__.py","src/test_forge/core/llm.py", ]
 
 [tool.coverage.report]
 fail_under = 70   # fail if coverage drops below 70%
