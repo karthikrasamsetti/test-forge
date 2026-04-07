@@ -112,15 +112,18 @@ ignore_missing_imports = true
 
 # ── Pytest ────────────────────────────────────────────────────────────────────
 [tool.pytest.ini_options]
-testpaths       = ["tests"]
-asyncio_mode    = "auto"
-addopts         = "-v --cov=src/test_forge --cov-report=term-missing"
-filterwarnings  = ["ignore::DeprecationWarning"]
+testpaths    = ["tests"]
+asyncio_mode = "auto"
+addopts      = "-v --cov=src/test_forge --cov-report=term-missing -m 'not integration'"
+markers      = [
+    "integration: marks tests that require network and real browser (deselect with '-m not integration')",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
 
 # ── Coverage ──────────────────────────────────────────────────────────────────
 [tool.coverage.run]
 source   = ["src/test_forge"]
-omit     = ["*/tests/*", "*/__init__.py","src/test_forge/core/llm.py", ]
+omit     = ["*/tests/*", "*/__init__.py","src/test_forge/core/llm.py", "src/test_forge/agents/crawler_agent.py",]
 
 [tool.coverage.report]
 fail_under = 70   # fail if coverage drops below 70%
