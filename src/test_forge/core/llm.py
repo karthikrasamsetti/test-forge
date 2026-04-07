@@ -33,6 +33,8 @@ def get_llm() -> BaseChatModel:
             model_name="claude-3-5-sonnet-20241022",  # ← model_name not model
             api_key=s.ANTHROPIC_API_KEY,  # type: ignore[arg-type]
             temperature=0.0,
+            timeout=60.0,
+            stop=None,
         )
 
     elif s.LLM_PROVIDER == "bedrock":
