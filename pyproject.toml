@@ -1,0 +1,126 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "test-forge"
+version = "0.1.0"
+description = "AI-powered test script generator using multi-agent architecture"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.12"
+authors = [
+    { name = "Karthik Rasamsetti" }
+]
+keywords = ["testing", "ai", "automation", "playwright", "selenium", "llm"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+]
+
+dependencies = [
+    # ── LLM ───────────────────────────────────────────────────────────────────
+    "langchain-core>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langchain-anthropic>=0.2.0",
+    "langchain-aws>=0.2.0",
+    "langsmith>=0.1.0",
+
+    # ── Web crawling ──────────────────────────────────────────────────────────
+    "playwright>=1.40.0",
+    "beautifulsoup4>=4.12.0",
+
+    # ── File reading ──────────────────────────────────────────────────────────
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0",
+    "python-docx>=1.0.0",
+    "pypdf>=4.0.0",
+
+    # ── API ───────────────────────────────────────────────────────────────────
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "python-multipart>=0.0.9",
+
+    # ── Config ────────────────────────────────────────────────────────────────
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+
+    # ── Observability ─────────────────────────────────────────────────────────
+    "structlog>=24.0.0",
+
+    # ── UI ────────────────────────────────────────────────────────────────────
+    "streamlit>=1.40.0",
+
+    # ── Utils ─────────────────────────────────────────────────────────────────
+    "requests>=2.31.0",
+    "certifi>=2024.0.0",
+    "aiofiles>=23.0.0",
+    "rich>=13.0.0",       # beautiful terminal output
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.0.0",
+    "httpx>=0.27.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "pre-commit>=3.7.0",
+]
+
+[project.scripts]
+test-forge = "test_forge.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/test_forge"]
+
+# ── Ruff (linter + formatter) ─────────────────────────────────────────────────
+[tool.ruff]
+target-version = "py312"
+line-length    = 100
+src            = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+]
+ignore = [
+    "E501",  # line too long — handled by formatter
+    "B008",  # do not perform function calls in default arguments
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["test_forge"]
+
+# ── Mypy (type checker) ───────────────────────────────────────────────────────
+[tool.mypy]
+python_version         = "3.12"
+strict                 = false
+warn_return_any        = true
+warn_unused_configs    = true
+ignore_missing_imports = true
+
+# ── Pytest ────────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths       = ["tests"]
+asyncio_mode    = "auto"
+addopts         = "-v --cov=src/test_forge --cov-report=term-missing"
+filterwarnings  = ["ignore::DeprecationWarning"]
+
+# ── Coverage ──────────────────────────────────────────────────────────────────
+[tool.coverage.run]
+source   = ["src/test_forge"]
+omit     = ["*/tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+fail_under = 70   # fail if coverage drops below 70%
