@@ -298,7 +298,7 @@ def parse_markdown(file_path: str) -> ReadResult:
             tc_id = id_match.group(1).upper().replace(" ", "")
             description = id_match.group(2).strip()
         else:
-            tc_id = f"TC{len(test_cases)+1:03d}"
+            tc_id = f"TC{len(test_cases) + 1:03d}"
             description = header
 
         block_text = "\n".join(lines[1:])
