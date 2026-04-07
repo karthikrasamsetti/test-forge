@@ -471,13 +471,22 @@ Example: [{"id": "TC001", "description": "...", "steps": ["step1", "step2"], ...
 
     user = HumanMessage(content=f"Extract test cases from this text:\n\n{text[:8000]}")
 
-    warnings = []
+    warnings: list[str] = []
     test_cases: list[TestCase] = []
 
     try:
         llm = get_llm()
         response = llm.invoke([system, user])
-        content = response.content.strip()
+
+        # ── Handle str | list response.content ────────────────────────────────
+        raw_content = response.content
+        if isinstance(raw_content, str):
+            content = raw_content.strip()
+        elif isinstance(raw_content, list) and raw_content:
+            first = raw_content[0]
+            content = first.strip() if isinstance(first, str) else str(first)
+        else:
+            content = ""
 
         # Strip markdown code fences if present
         content = re.sub(r"```(?:json)?\s*", "", content)

@@ -1,4 +1,3 @@
-# pragma: no cover
 """
 LLM factory for test-forge.
 Same pattern as langgraph_framework/llm/factory.py.
@@ -23,7 +22,7 @@ def get_llm() -> BaseChatModel:
 
         return ChatOpenAI(
             model=s.OPENAI_MODEL,
-            api_key=s.OPENAI_API_KEY,
+            api_key=s.OPENAI_API_KEY,  # type: ignore[arg-type]
             temperature=0.0,
         )
 
@@ -31,8 +30,8 @@ def get_llm() -> BaseChatModel:
         from langchain_anthropic import ChatAnthropic
 
         return ChatAnthropic(
-            model="claude-3-5-sonnet-20241022",
-            api_key=s.ANTHROPIC_API_KEY,
+            model_name="claude-3-5-sonnet-20241022",  # ← model_name not model
+            api_key=s.ANTHROPIC_API_KEY,  # type: ignore[arg-type]
             temperature=0.0,
         )
 
