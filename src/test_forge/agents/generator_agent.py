@@ -193,7 +193,7 @@ class GeneratorAgent:
     ) -> None:
         if framework not in FRAMEWORK_REGISTRY:
             raise ValueError(
-                f"Unsupported framework '{framework}'. " f"Choose from: {list(FRAMEWORK_REGISTRY)}"
+                f"Unsupported framework '{framework}'. Choose from: {list(FRAMEWORK_REGISTRY)}"
             )
         self.framework = framework
         self.template: BaseTemplate = FRAMEWORK_REGISTRY[framework]
