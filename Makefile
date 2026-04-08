@@ -60,8 +60,12 @@ docker-logs:
 	docker compose logs -f
 
 # ── Generate ──────────────────────────────────────────────────────────────────
+# generate:
+# 	uv run python -m test_forge.cli generate --input inputs/ --framework playwright
 generate:
-	uv run python -m test_forge.cli generate --input inputs/ --framework playwright
+	uv run python -m test_forge.orchestrator \
+		--input inputs/sample_test_cases.csv \
+		--url https://www.saucedemo.com
 
 # ── Clean ─────────────────────────────────────────────────────────────────────
 clean:
