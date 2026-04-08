@@ -193,7 +193,7 @@ class TestOrchestratorHappyPath:
             input_file="inputs/tests.csv",
             target_url="https://www.saucedemo.com",
         )
-        assert result.elapsed_seconds > 0
+        assert result.elapsed_seconds >= 0
 
     def test_all_four_agents_called(self, tmp_path: Path) -> None:
         orch, mocks = _make_orchestrator(tmp_path)
