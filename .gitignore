@@ -24,6 +24,7 @@ outputs/selenium/*.py
 outputs/pytest_api/*.py
 !outputs/playwright/example_*.py
 !outputs/selenium/example_*.py
+outputs/
 
 # Inputs — test case files (may contain sensitive data)
 inputs/*.xlsx
@@ -31,6 +32,7 @@ inputs/*.docx
 inputs/*.csv
 !inputs/sample_*.xlsx
 !inputs/sample_*.csv
+inputs/
 
 # Coverage
 .coverage
