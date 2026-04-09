@@ -9,7 +9,7 @@ install:
 
 # ── Development ───────────────────────────────────────────────────────────────
 dev:
-	uvicorn src.test_forge.api.server:app --reload --port 8000
+	uvicorn src.test_forge.api.server:app --reload --port 8000 --reload-dir src
 
 ui:
 	streamlit run src/test_forge/ui/app.py
