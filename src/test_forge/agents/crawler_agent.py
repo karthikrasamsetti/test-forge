@@ -13,8 +13,8 @@ from typing import Any
 
 import structlog
 
-from src.test_forge.config.settings import get_settings
-from src.test_forge.core.models import (
+from test_forge.config.settings import get_settings
+from test_forge.core.models import (
     CrawlResult,
     FormInfo,
     PageElement,

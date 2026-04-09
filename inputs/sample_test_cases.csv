@@ -1,0 +1,25 @@
+ID,Description,Steps,Expected Result,Preconditions,Priority,Category,URL
+TC001,Login with valid credentials,"1. Navigate to login page
+2. Enter username standard_user
+3. Enter password secret_sauce
+4. Click Login button",User is redirected to products page and sees inventory,User account exists in system,high,authentication,https://www.saucedemo.com
+TC002,Login with locked out user,"1. Navigate to login page
+2. Enter username locked_out_user
+3. Enter password secret_sauce
+4. Click Login button",Error message displayed: Epic sadface: Sorry this user has been locked out,User account exists in system,high,authentication,https://www.saucedemo.com
+TC003,Login with invalid password,"1. Navigate to login page
+2. Enter username standard_user
+3. Enter password wrongpassword
+4. Click Login button",Error message displayed about invalid credentials,None,medium,authentication,https://www.saucedemo.com
+TC004,Add product to cart,"1. Login with valid credentials
+2. Click Add to cart on Sauce Labs Backpack
+3. Check cart icon","Cart icon shows 1 item, product appears in cart",User is logged in,medium,cart,https://www.saucedemo.com/inventory.html
+TC005,Complete checkout flow,"1. Login with valid credentials
+2. Add any product to cart
+3. Click cart icon
+4. Click Checkout
+5. Enter first name John
+6. Enter last name Doe
+7. Enter zip code 12345
+8. Click Continue
+9. Click Finish",Order confirmation page shown with Thank you message,User is logged in with item in cart,high,checkout,https://www.saucedemo.com

@@ -44,6 +44,7 @@ class BaseTemplate(ABC):
         steps_code: list[str],
         base_url: str,
         imports_extra: list[str] | None = None,
+        use_auth_fixture: bool = False,
     ) -> str:
         """Return the full content of a runnable test file."""
 

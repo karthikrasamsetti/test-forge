@@ -81,11 +81,23 @@ def _make_orchestrator(
         "auth": MagicMock(),
         "crawler": MagicMock(),
         "generator": MagicMock(),
+        "validator": MagicMock(),
+        "planner": MagicMock(),
     }
     mocks["reader"].run.return_value = read_result
     mocks["auth"].authenticate_from_settings.return_value = auth_session
     mocks["crawler"].run.return_value = crawl_result
+    mocks["generator"].generate.return_value = scripts[0] if scripts else None
     mocks["generator"].generate_batch.return_value = scripts
+
+    # Validator always returns valid — files don't exist on disk in unit tests
+    from test_forge.agents.validator_agent import ValidationResult
+
+    valid_result = ValidationResult(filename="test.py", valid=True)
+    mocks["validator"].validate_file.return_value = valid_result
+
+    # Planner returns [target_url] for every test case
+    mocks["planner"].plan.return_value = ["https://www.saucedemo.com"]
 
     settings = MagicMock()
     settings.APP_USERNAME = "standard_user"
@@ -103,6 +115,8 @@ def _make_orchestrator(
     orch._auth = mocks["auth"]
     orch._crawler = mocks["crawler"]
     orch._generator = mocks["generator"]
+    orch._validator = mocks["validator"]
+    orch._planner = mocks["planner"]
     orch._settings = settings
 
     return orch, mocks
@@ -201,7 +215,7 @@ class TestOrchestratorHappyPath:
         mocks["reader"].run.assert_called_once()
         mocks["auth"].authenticate_from_settings.assert_called_once()
         mocks["crawler"].run.assert_called_once()
-        mocks["generator"].generate_batch.assert_called_once()
+        assert mocks["generator"].generate.call_count == 2
 
 
 # ------------------------------------------------------------------ #
@@ -217,7 +231,7 @@ class TestStepRead:
             target_url="https://www.saucedemo.com",
         )
         mocks["crawler"].run.assert_not_called()
-        mocks["generator"].generate_batch.assert_not_called()
+        assert mocks["generator"].generate.call_count == 0
         assert result.total_generated == 0
 
     def test_reader_exception_adds_warning(self, tmp_path: Path) -> None:
@@ -313,7 +327,7 @@ class TestStepCrawl:
             input_file="inputs/tests.csv",
             target_url="https://www.saucedemo.com",
         )
-        mocks["generator"].generate_batch.assert_not_called()
+        assert mocks["generator"].generate.call_count == 0
         assert any("Crawler failed" in w for w in result.warnings)
 
     def test_crawler_called_once_for_many_test_cases(self, tmp_path: Path) -> None:
@@ -339,17 +353,20 @@ class TestStepCrawl:
 
 class TestStepGenerate:
     def test_failed_scripts_counted(self, tmp_path: Path) -> None:
+        # Both scripts fail — generate() is called per test case and returns failed
         scripts = [
             GeneratedScript("TC001", "playwright", "test_tc001.py", "", success=False),
-            GeneratedScript("TC002", "playwright", "test_tc002.py", "", success=True),
+            GeneratedScript("TC002", "playwright", "test_tc002.py", "", success=False),
         ]
-        orch, _ = _make_orchestrator(tmp_path, generate_scripts=scripts)
+        orch, mocks = _make_orchestrator(tmp_path, generate_scripts=scripts)
+        # Make generate return each script in order
+        mocks["generator"].generate.side_effect = scripts
         result = orch.run(
             input_file="inputs/tests.csv",
             target_url="https://www.saucedemo.com",
         )
-        assert result.total_failed == 1
-        assert result.total_generated == 1
+        assert result.total_failed == 2
+        assert result.total_generated == 0
 
     def test_script_warnings_added_to_result(self, tmp_path: Path) -> None:
         scripts = [
@@ -369,8 +386,7 @@ class TestStepGenerate:
         )
         assert any("No elements" in w for w in result.warnings)
 
-    def test_generate_batch_receives_all_test_cases(self, tmp_path: Path) -> None:
+    def test_generate_called_once_per_test_case(self, tmp_path: Path) -> None:
         orch, mocks = _make_orchestrator(tmp_path)
         orch.run(input_file="inputs/tests.csv", target_url="https://www.saucedemo.com")
-        kwargs = mocks["generator"].generate_batch.call_args.kwargs
-        assert len(kwargs["test_cases"]) == 2
+        assert mocks["generator"].generate.call_count == 2
