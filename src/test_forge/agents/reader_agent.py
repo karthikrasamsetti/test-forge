@@ -20,8 +20,8 @@ from pathlib import Path
 import pandas as pd
 import structlog
 
-from src.test_forge.config.settings import get_settings
-from src.test_forge.core.models import ReadResult, TestCase
+from test_forge.config.settings import get_settings
+from test_forge.core.models import ReadResult, TestCase
 
 log = structlog.get_logger(__name__)
 settings = get_settings()
@@ -446,7 +446,7 @@ def _parse_with_llm(text: str, file_path: str, fmt: str) -> ReadResult:
 
     from langchain_core.messages import HumanMessage, SystemMessage
 
-    from src.test_forge.core.llm import get_llm
+    from test_forge.core.llm import get_llm
 
     log.info("llm_parsing", format=fmt, text_length=len(text))
 

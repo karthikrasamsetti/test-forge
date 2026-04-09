@@ -65,8 +65,8 @@ docker-logs:
 generate:
 	uv run python -m test_forge.orchestrator \
 		--input inputs/sample_test_cases.csv \
-		--url https://www.saucedemo.com
-
+		--url https://www.saucedemo.com \
+		--force-auth-refresh
 # ── Clean ─────────────────────────────────────────────────────────────────────
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} +

@@ -5,9 +5,9 @@ Tests each parser with sample fixture files.
 
 from pathlib import Path
 
-from src.test_forge.agents.reader_agent import ReaderAgent
-from src.test_forge.core.models import ReadResult
-from src.test_forge.core.models import TestCase as TC
+from test_forge.agents.reader_agent import ReaderAgent
+from test_forge.core.models import ReadResult
+from test_forge.core.models import TestCase as TC
 
 # Path to fixture files
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "sample_inputs"

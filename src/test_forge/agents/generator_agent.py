@@ -28,14 +28,10 @@ FRAMEWORK_REGISTRY: dict[str, BaseTemplate] = {
 # LLM prompt helpers                                                   #
 # ------------------------------------------------------------------ #
 
-SYSTEM_PROMPT = """\
-You are a test automation expert. Your job is to convert manual test case steps
-into structured test actions using ONLY the selectors provided.
+SYSTEM_PROMPT = """You are a test automation expert. Convert manual test case steps into structured
+test actions using ONLY the selectors provided.
 
-Rules:
-- Use ONLY selectors from the provided element list — never invent selectors.
-- Each action must be on its own line in the format: ACTION: arguments
-- Supported actions and their formats:
+Each action must be on its own line:
     goto: <url>
     fill: <selector> | <value>
     click: <selector>
@@ -47,13 +43,56 @@ Rules:
     assert_not_visible: <selector>
     comment: <human readable note>
 
-- For navigation steps (login buttons, submit buttons), always add a
-  wait_navigation line AFTER the click if the page URL will change.
-- For negative tests (locked user, wrong password), add assert_visible for
-  the error message selector and assert_url for the login page staying put.
-- Do NOT add imports, function signatures, or any Python code — only actions.
-- Respond with ONLY the action lines, nothing else.
+Rules:
+- Use ONLY selectors that appear EXACTLY in the provided element list.
+- NEVER invent, modify, or guess selector names not in the list.
+- For assertions, ONLY assert selectors that exist in the element list.
+- NEVER wrap response in markdown code fences (no backticks).
+- Respond with ONLY action lines, nothing else.
+
+Navigation rules:
+- For POSITIVE tests (successful login): add wait_navigation after submit,
+  then use assert_url to confirm the new URL (e.g. assert_url: /inventory.html).
+  NEVER assert login page elements after a successful login.
+- For NEGATIVE tests (locked user, wrong password):
+  - Do NOT add wait_navigation.
+  - DO add assert_visible for the error message selector.
 """
+
+SYSTEM_PROMPT_AUTH = """You are a test automation expert. The user is ALREADY LOGGED IN.
+Convert manual test case steps into structured test actions using ONLY the
+selectors provided. Start directly on the authenticated page.
+Do NOT add any login steps (no goto to login, no fill username/password).
+
+Each action must be on its own line:
+    goto: <url>
+    fill: <selector> | <value>
+    click: <selector>
+    select: <selector> | <value>
+    wait_navigation: <url_path>
+    assert_url: <url_path_regex>
+    assert_visible: <selector>
+    assert_text: <selector> | <text>
+    assert_not_visible: <selector>
+    comment: <human readable note>
+
+Rules:
+- Use ONLY selectors that appear EXACTLY in the provided element list.
+- NEVER invent, modify, or guess selector names not in the list.
+- For assertions, ONLY assert selectors that exist in the element list.
+- NEVER wrap response in markdown code fences (no backticks).
+- Start directly with the first real action on the authenticated page.
+- Respond with ONLY action lines, nothing else.
+"""
+
+# Keywords that indicate test requires pre-authenticated state
+_AUTH_PRECONDITION_KEYWORDS = {"logged in", "log in", "login", "authenticated", "signed in"}
+
+
+def _requires_auth(test_case: TestCase) -> bool:
+    """Return True if preconditions indicate user must already be logged in."""
+    pre = test_case.preconditions.lower()
+    return any(kw in pre for kw in _AUTH_PRECONDITION_KEYWORDS)
 
 
 def _build_element_summary(elements: list[PageElement]) -> str:
@@ -118,6 +157,9 @@ _ACTION_MAP = {
     "assert_not_visible": "action_assert_not_visible",
 }
 
+# Sentinel inserted into code_lines when LLM requests the auth fixture
+_AUTH_FIXTURE_SENTINEL = "__USE_AUTH_FIXTURE__"
+
 
 def _parse_action_lines(
     raw: str,
@@ -140,6 +182,13 @@ def _parse_action_lines(
         if line.lower().startswith("comment:"):
             text = line.split(":", 1)[1].strip()
             code_lines.append(f"# {text}")
+            continue
+
+        # fixture passthrough — signals which pytest fixture to use
+        if line.lower().startswith("fixture:"):
+            fixture_name = line.split(":", 1)[1].strip().lower()
+            if fixture_name == "logged_in_page":
+                code_lines.append(_AUTH_FIXTURE_SENTINEL)
             continue
 
         # parse  ACTION: args
@@ -172,6 +221,23 @@ def _parse_action_lines(
 # ------------------------------------------------------------------ #
 # Generator Agent                                                      #
 # ------------------------------------------------------------------ #
+
+
+def _fix_quotes(line: str) -> str:
+    """Fix LLM-generated lines where selectors use double quotes inside double-quoted strings.
+
+    e.g. page.fill("h3[data-test="error"]", ...)
+      -> page.fill("h3[data-test=\'error\']", ...)
+    """
+    import re as _re
+
+    # Replace attribute selectors with double quotes -> single quotes
+    # Matches: ["attr="value""] patterns inside strings
+    return _re.sub(
+        r'(\[[\w-]+=)"([^"]*)"(\])',
+        lambda m: f"{m.group(1)}'{m.group(2)}'{m.group(3)}",
+        line,
+    )
 
 
 class GeneratorAgent:
@@ -225,11 +291,17 @@ class GeneratorAgent:
         if not crawl_result.elements:
             warnings.append("No elements in CrawlResult — selectors may be invented")
 
-        # 2. Call LLM
-        raw_actions = self._call_llm(test_case, crawl_result, warnings)
+        # 2. Detect auth requirement from preconditions (programmatic, not LLM)
+        use_auth_fixture = _requires_auth(test_case)
+        self._log.debug("auth_fixture", test_id=test_case.id, use_auth=use_auth_fixture)
 
-        # 3. Parse to code lines
+        # 3. Call LLM with appropriate system prompt
+        raw_actions = self._call_llm(test_case, crawl_result, warnings, use_auth=use_auth_fixture)
+
+        # 4. Parse to code lines
         code_lines = _parse_action_lines(raw_actions, self.template, warnings)
+        code_lines = [line for line in code_lines if line != _AUTH_FIXTURE_SENTINEL]
+        code_lines = [_fix_quotes(line) for line in code_lines]
 
         if not code_lines:
             warnings.append("LLM returned no parseable actions — empty test body")
@@ -242,6 +314,7 @@ class GeneratorAgent:
             description=test_case.description,
             steps_code=code_lines,
             base_url=crawl_result.url,
+            use_auth_fixture=use_auth_fixture,
         )
         conftest = self.template.render_conftest(base_url=crawl_result.url)
 
@@ -302,9 +375,11 @@ class GeneratorAgent:
         test_case: TestCase,
         crawl_result: CrawlResult,
         warnings: list[str],
+        use_auth: bool = False,
     ) -> str:
         """Send prompt to LLM and return raw action lines string."""
-        system_msg = SystemMessage(content=SYSTEM_PROMPT)
+        prompt = SYSTEM_PROMPT_AUTH if use_auth else SYSTEM_PROMPT
+        system_msg = SystemMessage(content=prompt)
         user_msg = HumanMessage(content=_build_user_prompt(test_case, crawl_result))
 
         try:
