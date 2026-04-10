@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-import requests
+import requests  # type: ignore[import-untyped]
 import streamlit as st
 
 # ------------------------------------------------------------------ #
