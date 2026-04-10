@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import tempfile
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import structlog
@@ -139,3 +139,136 @@ def run_generation_job(
 
     finally:
         Path(tmp_path).unlink(missing_ok=True)
+
+
+# ------------------------------------------------------------------ #
+# Test run store                                                        #
+# ------------------------------------------------------------------ #
+
+
+@dataclass
+class RunJob:
+    """Holds the state of one pytest run job."""
+
+    run_id: str
+    job_id: str
+    status: JobStatus = JobStatus.PENDING
+    result: dict = field(default_factory=dict)
+    error: str = ""
+
+    @classmethod
+    def create(cls, job_id: str) -> RunJob:
+        return cls(run_id=str(uuid.uuid4()), job_id=job_id)
+
+
+class RunStore:
+    """In-memory store for test run jobs."""
+
+    def __init__(self) -> None:
+        self._runs: dict[str, RunJob] = {}
+
+    def create(self, job_id: str) -> RunJob:
+        run = RunJob.create(job_id)
+        self._runs[run.run_id] = run
+        return run
+
+    def get(self, run_id: str) -> RunJob | None:
+        return self._runs.get(run_id)
+
+    def update(self, run_id: str, status: JobStatus, result: dict, error: str = "") -> None:
+        if run := self._runs.get(run_id):
+            run.status = status
+            run.result = result
+            run.error = error
+
+
+run_store = RunStore()
+
+
+# ------------------------------------------------------------------ #
+# Pytest runner                                                         #
+# ------------------------------------------------------------------ #
+
+
+def run_tests_job(
+    run_id: str,
+    output_dir: str,
+    framework: str,
+) -> None:
+    """Run pytest on generated scripts in a background thread."""
+    import re
+    import subprocess
+    import time
+
+    log = logger.bind(run_id=run_id)
+    run_store.update(run_id, JobStatus.RUNNING, {})
+    log.info("test_run_started", output_dir=output_dir)
+
+    test_dir = str(Path(output_dir) / framework)
+    start = time.monotonic()
+
+    try:
+        proc = subprocess.run(
+            [
+                "pytest",
+                test_dir,
+                "-v",
+                "--no-cov",
+                "--no-header",
+                "--tb=short",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        elapsed = round(time.monotonic() - start, 2)
+        stdout = proc.stdout + proc.stderr
+
+        # Parse results from pytest output
+        results = []
+        passed = 0
+        failed = 0
+
+        for line in stdout.splitlines():
+            # Match lines like: path/test_file.py::test_func[chromium] PASSED
+            match = re.search(
+                r"(test_[\w]+\.py)::(test_[\w]+)(?:\[.*?\])?\s+(PASSED|FAILED|ERROR)",
+                line,
+            )
+            if match:
+                filename = match.group(1)
+                test_name = match.group(2)
+                outcome = match.group(3)
+                ok = outcome == "PASSED"
+                if ok:
+                    passed += 1
+                else:
+                    failed += 1
+                results.append(
+                    {
+                        "test_id": test_name,
+                        "filename": filename,
+                        "passed": ok,
+                        "error": "" if ok else outcome,
+                    }
+                )
+
+        result = {
+            "total": passed + failed,
+            "passed": passed,
+            "failed": failed,
+            "elapsed_seconds": elapsed,
+            "results": results,
+            "stdout": stdout[-3000:],  # last 3000 chars to avoid huge payloads
+        }
+
+        status = JobStatus.DONE if proc.returncode == 0 else JobStatus.FAILED
+        run_store.update(run_id, status, result)
+        log.info("test_run_done", passed=passed, failed=failed)
+
+    except subprocess.TimeoutExpired:
+        run_store.update(run_id, JobStatus.FAILED, {}, "Pytest timed out after 300s")
+        log.error("test_run_timeout")
+    except Exception as exc:  # noqa: BLE001
+        run_store.update(run_id, JobStatus.FAILED, {}, str(exc))
+        log.error("test_run_error", error=str(exc))

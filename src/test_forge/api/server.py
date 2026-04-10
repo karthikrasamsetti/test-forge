@@ -6,14 +6,17 @@ import structlog
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from test_forge.api.jobs import job_store, run_generation_job
+from test_forge.api.jobs import job_store, run_generation_job, run_store, run_tests_job
 from test_forge.api.models import (
     HealthResponse,
     JobCreatedResponse,
     JobResultResponse,
     JobStatus,
     JobStatusResponse,
+    RunJobResponse,
+    RunStatusResponse,
     ScriptSummary,
+    TestResult,
 )
 from test_forge.config.settings import get_settings
 
@@ -172,6 +175,60 @@ async def get_scripts(job_id: str) -> JobResultResponse:
         elapsed_seconds=result.elapsed_seconds,
         warnings=result.warnings,
     )
+
+
+@app.post("/run/{job_id}", response_model=RunJobResponse, tags=["Testing"])
+async def run_tests(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+) -> RunJobResponse:
+    """Run the generated Playwright tests for a completed job.
+
+    Starts pytest in the background. Poll GET /run-status/{run_id} for results.
+    """
+    job = job_store.get(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found")
+
+    if job.status != JobStatus.DONE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Job '{job_id}' is {job.status.value} — can only run tests for completed jobs",
+        )
+
+    run = run_store.create(job_id)
+    background_tasks.add_task(
+        run_tests_job,
+        run_id=run.run_id,
+        output_dir=settings.OUTPUT_DIR,
+        framework=job.result.framework if job.result else "playwright",
+    )
+
+    return RunJobResponse(run_id=run.run_id, job_id=job_id)
+
+
+@app.get("/run-status/{run_id}", response_model=RunStatusResponse, tags=["Testing"])
+async def get_run_status(run_id: str) -> RunStatusResponse:
+    """Poll the status of a test run."""
+    run = run_store.get(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+
+    response = RunStatusResponse(
+        run_id=run.run_id,
+        status=run.status,
+        error=run.error,
+    )
+
+    if run.result:
+        response.total = run.result.get("total", 0)
+        response.passed = run.result.get("passed", 0)
+        response.failed = run.result.get("failed", 0)
+        response.elapsed_seconds = run.result.get("elapsed_seconds", 0.0)
+        response.stdout = run.result.get("stdout", "")
+        response.results = [TestResult(**r) for r in run.result.get("results", [])]
+
+    return response
 
 
 @app.get("/jobs", tags=["System"])
