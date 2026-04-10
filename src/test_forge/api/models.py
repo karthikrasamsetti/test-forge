@@ -93,3 +93,41 @@ class HealthResponse(BaseModel):
 
     status: str = "ok"
     version: str = "0.1.0"
+
+
+# ------------------------------------------------------------------ #
+# Test run models                                                      #
+# ------------------------------------------------------------------ #
+
+
+class TestResult(BaseModel):
+    """Result of one individual test."""
+
+    test_id: str
+    filename: str
+    passed: bool
+    duration_seconds: float = 0.0
+    error: str = ""
+
+
+class RunJobResponse(BaseModel):
+    """Returned by POST /run/{job_id}."""
+
+    run_id: str
+    job_id: str
+    status: JobStatus = JobStatus.PENDING
+    message: str = "Test run started — poll /run-status/{run_id}"
+
+
+class RunStatusResponse(BaseModel):
+    """Returned by GET /run-status/{run_id}."""
+
+    run_id: str
+    status: JobStatus
+    total: int = 0
+    passed: int = 0
+    failed: int = 0
+    elapsed_seconds: float = 0.0
+    results: list[TestResult] = []
+    stdout: str = ""
+    error: str = ""

@@ -121,3 +121,8 @@ omit     = ["*/tests/*", "*/__init__.py","src/test_forge/core/llm.py", "src/test
 
 [tool.coverage.report]
 fail_under = 70   # fail if coverage drops below 70%
+
+[dependency-groups]
+dev = [
+    "types-requests>=2.33.0.20260408",
+]
